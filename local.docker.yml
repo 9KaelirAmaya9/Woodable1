@@ -1,32 +1,79 @@
 services:
-  # React App Service
-  react-app:
+  # Traefik Reverse Proxy Service (Edge Router)
+  traefik:
     build:
-      context: ./react-app
+      context: ./traefik
       dockerfile: .Dockerfile
       args:
-        - NODE_VERSION=${REACT_APP_NODE_VERSION}
-        - REACT_APP_PORT=${REACT_APP_PORT}
-        - REACT_APP_API_URL=${REACT_APP_API_URL}
-    container_name: ${COMPOSE_PROJECT_NAME}_react-app
+        - TRAEFIK_VERSION=${TRAEFIK_VERSION}
+        - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
+        - TRAEFIK_PORT=${TRAEFIK_PORT}
+        - TRAEFIK_API_PORT=${TRAEFIK_API_PORT}
+        - TRAEFIK_API_ENTRYPOINT=${TRAEFIK_API_ENTRYPOINT}
+        - TRAEFIK_DOCKER_NETWORK=${TRAEFIK_DOCKER_NETWORK}
+        - TRAEFIK_EXPOSED_BY_DEFAULT=${TRAEFIK_EXPOSED_BY_DEFAULT}
+    container_name: ${COMPOSE_PROJECT_NAME}_traefik
+    ports:
+      - "80:80"
+      - "443:443"
     environment:
-      - NODE_ENV=development
-      - REACT_APP_API_URL=${REACT_APP_API_URL}
+      - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
+      - TRAEFIK_PORT=${TRAEFIK_PORT}
+      - TRAEFIK_API_PORT=${TRAEFIK_API_PORT}
+      - TRAEFIK_API_ENTRYPOINT=${TRAEFIK_API_ENTRYPOINT}
+      - TRAEFIK_DOCKER_NETWORK=${TRAEFIK_DOCKER_NETWORK}
+      - TRAEFIK_EXPOSED_BY_DEFAULT=${TRAEFIK_EXPOSED_BY_DEFAULT}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - traefik_logs:/var/log/traefik
     networks:
       - base2_network
     restart: unless-stopped
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:${REACT_APP_PORT}', (r) => {process.exit(r.statusCode === 200 ? 0 : 1)})",
-        ]
+      test: ['CMD', 'traefik', 'healthcheck', '--ping']
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+
+  # Nginx Web Server (Frontend + Static Assets)
+  nginx:
+    build:
+      context: .
+      dockerfile: ./nginx/.Dockerfile
+      args:
+        - NGINX_VERSION=${NGINX_VERSION}
+        - NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES}
+        - NGINX_WORKER_CONNECTIONS=${NGINX_WORKER_CONNECTIONS}
+        - NGINX_PORT=${NGINX_PORT}
+        # React Build Args
+        - REACT_APP_NODE_VERSION=${REACT_APP_NODE_VERSION}
+        - REACT_APP_API_URL=${REACT_APP_API_URL}
+    container_name: ${COMPOSE_PROJECT_NAME}_nginx
+    environment:
+      - NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES}
+      - NGINX_WORKER_CONNECTIONS=${NGINX_WORKER_CONNECTIONS}
+      - NGINX_PORT=${NGINX_PORT}
+    labels:
+      - "traefik.enable=true"
+      # Frontend Routing (Root)
+      - "traefik.http.routers.frontend.rule=Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
+      # HTTP -> HTTPS Redirect
+      - "traefik.http.routers.frontend-http.rule=Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)"
+      - "traefik.http.routers.frontend-http.entrypoints=web"
+      - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+    networks:
+      - base2_network
+    restart: unless-stopped
+    healthcheck:
+      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:${NGINX_PORT}/health']
       interval: 30s
       timeout: 3s
       retries: 3
-      start_period: 40s
+      start_period: 10s
 
   # Backend API Service
   backend:
@@ -54,6 +101,13 @@ services:
       - FRONTEND_URL=${FRONTEND_URL}
       - RATE_LIMIT_WINDOW_MS=${RATE_LIMIT_WINDOW_MS}
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS}
+    labels:
+      - "traefik.enable=true"
+      # API Routing (/api)
+      - "traefik.http.routers.api.rule=(Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.services.api.loadbalancer.server.port=${BACKEND_PORT}"
     networks:
       - base2_network
     depends_on:
@@ -72,77 +126,6 @@ services:
       timeout: 3s
       retries: 3
       start_period: 40s
-
-  # Traefik Reverse Proxy Service
-  traefik:
-    build:
-      context: ./traefik
-      dockerfile: .Dockerfile
-      args:
-        - TRAEFIK_VERSION=${TRAEFIK_VERSION}
-        - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
-        - TRAEFIK_PORT=${TRAEFIK_PORT}
-        - TRAEFIK_API_PORT=${TRAEFIK_API_PORT}
-        - TRAEFIK_API_ENTRYPOINT=${TRAEFIK_API_ENTRYPOINT}
-        - TRAEFIK_DOCKER_NETWORK=${TRAEFIK_DOCKER_NETWORK}
-        - TRAEFIK_EXPOSED_BY_DEFAULT=${TRAEFIK_EXPOSED_BY_DEFAULT}
-    container_name: ${COMPOSE_PROJECT_NAME}_traefik
-    ports:
-      - '${TRAEFIK_HOST_PORT}:${TRAEFIK_PORT}'
-      - '${TRAEFIK_API_PORT}:${TRAEFIK_API_PORT}'
-    environment:
-      - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
-      - TRAEFIK_PORT=${TRAEFIK_PORT}
-      - TRAEFIK_API_PORT=${TRAEFIK_API_PORT}
-      - TRAEFIK_API_ENTRYPOINT=${TRAEFIK_API_ENTRYPOINT}
-      - TRAEFIK_DOCKER_NETWORK=${TRAEFIK_DOCKER_NETWORK}
-      - TRAEFIK_EXPOSED_BY_DEFAULT=${TRAEFIK_EXPOSED_BY_DEFAULT}
-    volumes:
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - traefik_logs:/var/log/traefik
-    networks:
-      - base2_network
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD', 'traefik', 'healthcheck', '--ping']
-      interval: 30s
-      timeout: 5s
-      retries: 3
-      start_period: 20s
-
-  # Nginx Web Server Service
-  nginx:
-    build:
-      context: ./nginx
-      dockerfile: .Dockerfile
-      args:
-        - NGINX_VERSION=${NGINX_VERSION}
-        - NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES}
-        - NGINX_WORKER_CONNECTIONS=${NGINX_WORKER_CONNECTIONS}
-        - NGINX_PORT=${NGINX_PORT}
-    container_name: ${COMPOSE_PROJECT_NAME}_nginx
-    environment:
-      - NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES}
-      - NGINX_WORKER_CONNECTIONS=${NGINX_WORKER_CONNECTIONS}
-      - NGINX_PORT=${NGINX_PORT}
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.frontend.rule=Host(${WEBSITE_DOMAIN})"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      - "traefik.http.routers.frontend-http.rule=Host(${WEBSITE_DOMAIN})"
-      - "traefik.http.routers.frontend-http.entrypoints=web"
-      - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-    networks:
-      - base2_network
-    restart: unless-stopped
-    healthcheck:
-      test: ['CMD', 'wget', '--quiet', '--tries=1', '--spider', 'http://localhost:${NGINX_PORT}/']
-      interval: 30s
-      timeout: 3s
-      retries: 3
-      start_period: 10s
 
   # PostgreSQL Database Service
   postgres:
@@ -196,6 +179,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    # No ports exposed exposed to host. Not routed via Traefik for now (internal use only).
     healthcheck:
       test:
         [

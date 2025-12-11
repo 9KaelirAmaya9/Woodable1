@@ -1,56 +1,67 @@
-# Dockerfile for Nginx
-# Robust nginx configuration with environment variable support
+# Dockerfile for Nginx (Frontend)
+# Multi-stage build: Build React App -> Serve with Nginx
 
+# --- Stage 1: Build React App ---
+ARG REACT_APP_NODE_VERSION=18-alpine
+FROM node:${REACT_APP_NODE_VERSION} AS build
+
+WORKDIR /app
+ARG REACT_APP_API_URL
+ENV REACT_APP_API_URL=${REACT_APP_API_URL}
+ENV NODE_ENV=production
+
+# Install dependencies (cache layer)
+COPY ./react-app/package*.json ./
+RUN npm ci
+
+# Copy source and build
+COPY ./react-app/ .
+RUN npm run build
+
+# --- Stage 2: Serve with Nginx ---
 ARG NGINX_VERSION=1.25-alpine
 FROM nginx:${NGINX_VERSION}
 
-# Install envsubst for environment variable substitution
+# Install envsubst
 RUN apk add --no-cache gettext
 
-# Set build arguments for environment variables
+# Build Args for Nginx
 ARG NGINX_WORKER_PROCESSES=auto
 ARG NGINX_WORKER_CONNECTIONS=1024
 ARG NGINX_PORT=80
 
-# Create non-root user for security
-RUN addgroup -g 101 -S nginx && \
-    adduser -S -D -H -u 101 -h /var/cache/nginx -s /sbin/nologin -G nginx -g nginx nginx 2>/dev/null || true
-
-# Create necessary directories with proper permissions
-RUN mkdir -p /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
-    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
-    chmod -R 755 /var/cache/nginx /var/log/nginx
-
-# Copy nginx configuration template
-COPY nginx.conf /etc/nginx/templates/nginx.conf.template
-
-# Create startup script for environment variable substitution
-# Script runs as root to generate config, then nginx handles user switching internally
-RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
-    echo 'set -e' >> /docker-entrypoint.sh && \
-    echo '# Generate nginx config from template as root' >> /docker-entrypoint.sh && \
-    echo 'envsubst "\$NGINX_WORKER_PROCESSES \$NGINX_WORKER_CONNECTIONS \$NGINX_PORT" < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf' >> /docker-entrypoint.sh && \
-    echo '# Set proper permissions on generated config' >> /docker-entrypoint.sh && \
-    echo 'chown nginx:nginx /etc/nginx/nginx.conf' >> /docker-entrypoint.sh && \
-    echo 'chmod 644 /etc/nginx/nginx.conf' >> /docker-entrypoint.sh && \
-    echo '# Start nginx (it will drop privileges based on user directive in config)' >> /docker-entrypoint.sh && \
-    echo 'exec nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
-    chmod +x /docker-entrypoint.sh
-
-# Set environment variables
+# Environment Variables
 ENV NGINX_WORKER_PROCESSES=${NGINX_WORKER_PROCESSES} \
     NGINX_WORKER_CONNECTIONS=${NGINX_WORKER_CONNECTIONS} \
     NGINX_PORT=${NGINX_PORT}
 
-# Expose port
+# Create non-root user/groups if needed (alpine nginx usually has nginx user)
+# Ensure directories exist
+RUN mkdir -p /var/cache/nginx /var/log/nginx /etc/nginx/conf.d && \
+    touch /var/run/nginx.pid && \
+    chown -R nginx:nginx /var/cache/nginx /var/log/nginx /etc/nginx/conf.d /var/run/nginx.pid
+
+# Copy Nginx Config Template
+COPY ./nginx/nginx.conf /etc/nginx/templates/nginx.conf.template
+
+# Copy React Build Artifacts
+# Clean default directory first
+RUN rm -rf /usr/share/nginx/html/*
+COPY --from=build /app/build /usr/share/nginx/html
+
+# Entrypoint Script
+RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
+    echo 'set -e' >> /docker-entrypoint.sh && \
+    echo '# Generate nginx config' >> /docker-entrypoint.sh && \
+    echo 'envsubst "\$NGINX_WORKER_PROCESSES \$NGINX_WORKER_CONNECTIONS \$NGINX_PORT" < /etc/nginx/templates/nginx.conf.template > /etc/nginx/nginx.conf' >> /docker-entrypoint.sh && \
+    echo 'exec nginx -g "daemon off;"' >> /docker-entrypoint.sh && \
+    chmod +x /docker-entrypoint.sh
+
+# Expose Port (internal only)
 EXPOSE ${NGINX_PORT}
 
-# Add health check
+# Health Check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=10s --retries=3 \
-  CMD wget --quiet --tries=1 --spider http://localhost:${NGINX_PORT}/ || exit 1
+  CMD wget --quiet --tries=1 --spider http://localhost:${NGINX_PORT}/health || exit 1
 
-# Note: Not switching to nginx user here - entrypoint runs as root to generate config
-# Nginx itself will drop privileges based on the 'user' directive in nginx.conf
-
-# Start nginx with environment variable substitution
 ENTRYPOINT ["/docker-entrypoint.sh"]
