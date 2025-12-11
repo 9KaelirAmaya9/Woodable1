@@ -22,7 +22,8 @@ def log_json(label, data):
     print(f"\033[1;36m[DEBUG]\033[0m {label}: {json.dumps(data, indent=2)}")
 
 # Load .env
-load_dotenv()
+env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env"))
+load_dotenv(dotenv_path=env_path)
 
 
 # --- SSH Key Generation and .env Update ---
@@ -41,7 +42,12 @@ COMPLETION_MARKER = "User data script completed at"
 SUMMARY = []
 PROJECT_NAME = os.getenv("PROJECT_NAME", "base2")
 ssh_dir = os.path.expanduser("~/.ssh")
-ssh_key_path = os.path.join(ssh_dir, PROJECT_NAME)
+# Prioritize LOCAL_SSH_KEY_PATH from .env, else default to ~/.ssh/<PROJECT_NAME>
+local_key_env = os.getenv("LOCAL_SSH_KEY_PATH")
+if local_key_env:
+    ssh_key_path = os.path.abspath(os.path.expanduser(local_key_env))
+else:
+    ssh_key_path = os.path.join(ssh_dir, PROJECT_NAME)
 pub_key_path = ssh_key_path + ".pub"
 env_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../.env"))
 
@@ -444,9 +450,9 @@ try:
 
     # Automatically run post-deployment script
     post_deploy_script = os.path.abspath(os.path.join(os.path.dirname(__file__), "../scripts/post_deploy_base2.sh")).replace("\\", "/")
-    log(f"Running post-deployment script: {post_deploy_script} {ip_address}")
+    log(f"Running post-deployment script: {post_deploy_script} {ip_address} {ssh_key_path}")
     try:
-        result = subprocess.run(["bash", post_deploy_script, ip_address], capture_output=True, text=True)
+        result = subprocess.run(["bash", post_deploy_script, ip_address, ssh_key_path], capture_output=True, text=True)
         print(result.stdout)
         if result.stderr:
             print(result.stderr)

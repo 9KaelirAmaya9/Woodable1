@@ -49,7 +49,7 @@ mkdir -p "$DEPLOY_PATH$PROJECT_NAME"
 if [ -d "$DEPLOY_PATH$PROJECT_NAME" ] && [ "$(ls -A "$DEPLOY_PATH$PROJECT_NAME")" ]; then
   log "$DEPLOY_PATH$PROJECT_NAME already exists and is not empty, skipping git clone."
 else
-  git clone https://github.com/woodkill00/base2.git "$DEPLOY_PATH$PROJECT_NAME"
+  git clone https://github.com/9KaelirAmaya9/Woodable1.git "$DEPLOY_PATH$PROJECT_NAME"
 fi
 
 # --- Python Virtual Environment Setup ---
@@ -159,5 +159,10 @@ echo "User data script completed at $(date)" | tee -a /var/log/cloud-init-output
 
 log "Rebooting system to complete setup..."
 echo "Rebooting system to complete setup..." | tee -a /var/log/cloud-init-output.log
+
+# Post-reboot/setup completion marker (per user request)
+LOGFILE="/root/setup_complete.log"
+echo "$(date) - All setup processes completed successfully." | tee -a "$LOGFILE"
+
 sleep 2
 reboot
