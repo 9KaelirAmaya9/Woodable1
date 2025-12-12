@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import { GoogleOAuthProvider } from '@react-oauth/google';
 import { AuthProvider } from './contexts/AuthContext';
+import { CartProvider } from './contexts/CartContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,7 @@ import VerifyEmail from './pages/VerifyEmail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import MenuManager from './pages/admin/MenuManager';
+import Menu from './pages/Menu';
 import './App.css';
 
 // Replace this with your actual Google Client ID
@@ -20,38 +22,41 @@ function App() {
   return (
     <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
       <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/verify-email" element={<VerifyEmail />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-            <Route path="/reset-password" element={<ResetPassword />} />
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <Dashboard />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute>
-                  <UserSettings />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/admin/menu"
-              element={
-                <ProtectedRoute allowedRoles={['admin']}>
-                  <MenuManager />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </Router>
+        <CartProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/menu" element={<Menu />} />
+              <Route path="/verify-email" element={<VerifyEmail />} />
+              <Route path="/forgot-password" element={<ForgotPassword />} />
+              <Route path="/reset-password" element={<ResetPassword />} />
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <Dashboard />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute>
+                    <UserSettings />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/admin/menu"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <MenuManager />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </Router>
+        </CartProvider>
       </AuthProvider>
     </GoogleOAuthProvider>
   );

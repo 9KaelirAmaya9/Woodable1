@@ -123,5 +123,23 @@ export const menuAPI = {
   },
 };
 
+// Order API calls
+export const orderAPI = {
+  createOrder: async (orderData) => {
+    // orderData: { items: [{id, quantity}], customer_name, customer_phone, special_instructions }
+    const response = await api.post('/orders', orderData);
+    return response.data;
+  },
+
+  getAllOrders: async () => {
+    const response = await api.get('/orders');
+    return response.data;
+  },
+
+  updateStatus: async (id, status) => {
+    const response = await api.put(`/orders/${id}/status`, { status });
+    return response.data;
+  },
+};
 
 export default api;

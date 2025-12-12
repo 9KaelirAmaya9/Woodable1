@@ -6,6 +6,7 @@ import App from '../App';
 // Mock the Google OAuth provider
 jest.mock('@react-oauth/google', () => ({
   GoogleOAuthProvider: ({ children }) => <div>{children}</div>,
+  GoogleLogin: () => <div>Google Login Mock</div>,
 }));
 
 // Mock AuthContext

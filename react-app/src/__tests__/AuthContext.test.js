@@ -3,6 +3,18 @@ import { renderHook, act, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth } from '../contexts/AuthContext';
 import { authAPI } from '../services/api';
 
+// Mock axios to avoid ESM syntax errors
+jest.mock('axios', () => ({
+  create: () => ({
+    interceptors: {
+      request: { use: jest.fn(), e: jest.fn() },
+      response: { use: jest.fn(), e: jest.fn() }
+    },
+    get: jest.fn(),
+    post: jest.fn()
+  })
+}));
+
 // Mock the API module
 jest.mock('../services/api');
 
@@ -11,7 +23,15 @@ describe('AuthContext', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    localStorage.clear();
+    Object.defineProperty(window, 'localStorage', {
+      value: {
+        getItem: jest.fn(),
+        setItem: jest.fn(),
+        removeItem: jest.fn(),
+        clear: jest.fn(),
+      },
+      writable: true
+    });
   });
 
   test('should provide initial auth state', () => {

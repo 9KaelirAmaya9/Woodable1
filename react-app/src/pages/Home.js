@@ -28,7 +28,7 @@ const Home = () => {
         decoded.name,
         decoded.picture
       );
-      
+
       if (result.success) {
         navigate('/dashboard');
       } else {
@@ -132,14 +132,14 @@ const Home = () => {
           <h1 style={styles.title}>Welcome Back!</h1>
           <p style={styles.subtitle}>You are already logged in</p>
           <div style={styles.buttonGroup}>
-            <button 
-              onClick={() => navigate('/dashboard')} 
+            <button
+              onClick={() => navigate('/dashboard')}
               style={styles.primaryButton}
             >
               Go to Dashboard
             </button>
-            <button 
-              onClick={logout} 
+            <button
+              onClick={logout}
               style={styles.secondaryButton}
             >
               Logout
@@ -155,7 +155,7 @@ const Home = () => {
       <div style={styles.card}>
         <h1 style={styles.title}>Welcome to Base2</h1>
         <p style={styles.subtitle}>
-          {showEmailAuth 
+          {showEmailAuth
             ? (isSignup ? 'Create your account' : 'Sign in to your account')
             : 'Choose your sign-in method'}
         </p>
@@ -197,6 +197,25 @@ const Home = () => {
             </button>
 
             <div style={styles.features}>
+              <button
+                onClick={() => navigate('/menu')}
+                style={{
+                  width: '100%',
+                  padding: '15px',
+                  fontSize: '18px',
+                  fontWeight: 'bold',
+                  color: 'white',
+                  background: '#ff6b6b',
+                  border: 'none',
+                  borderRadius: '8px',
+                  cursor: 'pointer',
+                  boxShadow: '0 4px 15px rgba(255, 107, 107, 0.4)',
+                  marginBottom: '15px'
+                }}
+              >
+                🌮 ORDER NOW
+              </button>
+
               <h3 style={styles.featuresTitle}>Features:</h3>
               <ul style={styles.featuresList}>
                 <li>🔐 Secure Authentication</li>
