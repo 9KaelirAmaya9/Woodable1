@@ -32,8 +32,7 @@ COPY traefik.yml /etc/traefik/templates/traefik.yml.template
 
 # Create startup script for environment variable substitution
 RUN echo '#!/bin/sh' > /docker-entrypoint.sh && \
-  echo 'set -e' >> /docker-entrypoint.sh && \
-  echo 'envsubst "\$TRAEFIK_PORT \$TRAEFIK_API_PORT \$TRAEFIK_LOG_LEVEL \$TRAEFIK_DOCKER_NETWORK \$TRAEFIK_EXPOSED_BY_DEFAULT" < /etc/traefik/templates/traefik.yml.template > /etc/traefik/traefik.yml' >> /docker-entrypoint.sh && \
+  echo 'set -e' >> /docker-entrypoint.sh &&    echo 'envsubst "\$TRAEFIK_PORT \$TRAEFIK_API_PORT \$TRAEFIK_LOG_LEVEL \$TRAEFIK_DOCKER_NETWORK \$TRAEFIK_EXPOSED_BY_DEFAULT \$TRAEFIK_CERT_EMAIL" < /etc/traefik/templates/traefik.yml.template > /etc/traefik/traefik.yml' >> /docker-entrypoint.sh && \
   echo 'exec /entrypoint.sh "$@"' >> /docker-entrypoint.sh && \
   chmod +x /docker-entrypoint.sh
 

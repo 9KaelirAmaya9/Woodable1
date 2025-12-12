@@ -23,6 +23,8 @@ services:
       - TRAEFIK_API_ENTRYPOINT=${TRAEFIK_API_ENTRYPOINT}
       - TRAEFIK_DOCKER_NETWORK=${TRAEFIK_DOCKER_NETWORK}
       - TRAEFIK_EXPOSED_BY_DEFAULT=${TRAEFIK_EXPOSED_BY_DEFAULT}
+      - TRAEFIK_CERT_EMAIL=${TRAEFIK_CERT_EMAIL}
+      - DO_AUTH_TOKEN=${DO_API_TOKEN}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - traefik_logs:/var/log/traefik
@@ -58,7 +60,7 @@ services:
       - "traefik.enable=true"
       # Frontend Routing (Root)
       - "traefik.http.routers.frontend.rule=Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)"
-      - "traefik.http.routers.frontend.entrypoints=websecure"
+      - "traefik.http.routers.frontend.entrypoints=web-secure"
       - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
       # HTTP -> HTTPS Redirect
       - "traefik.http.routers.frontend-http.rule=Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)"
@@ -105,7 +107,7 @@ services:
       - "traefik.enable=true"
       # API Routing (/api)
       - "traefik.http.routers.api.rule=(Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)) && PathPrefix(`/api`)"
-      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.entrypoints=web-secure"
       - "traefik.http.routers.api.tls.certresolver=letsencrypt"
       - "traefik.http.services.api.loadbalancer.server.port=${BACKEND_PORT}"
     networks:
