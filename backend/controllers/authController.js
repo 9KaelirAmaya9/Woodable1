@@ -365,7 +365,7 @@ const resetPassword = async (req, res) => {
 const getMe = async (req, res) => {
   try {
     const result = await query(
-      'SELECT id, email, name, picture, email_verified, auth_provider, bio, location, website, created_at FROM users WHERE id = $1',
+      'SELECT id, email, name, picture, email_verified, auth_provider, role, bio, location, website, created_at FROM users WHERE id = $1',
       [req.user.id]
     );
 
