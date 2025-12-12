@@ -67,6 +67,16 @@ services:
       - "traefik.http.routers.frontend-http.entrypoints=web"
       - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      # Security Headers
+      - "traefik.http.middlewares.security-headers.headers.sslredirect=true"
+      - "traefik.http.middlewares.security-headers.headers.stsseconds=31536000"
+      - "traefik.http.middlewares.security-headers.headers.stsincludesubdomains=true"
+      - "traefik.http.middlewares.security-headers.headers.stspreload=true"
+      - "traefik.http.middlewares.security-headers.headers.framedeny=true"
+      - "traefik.http.middlewares.security-headers.headers.contenttypenosniff=true"
+      - "traefik.http.middlewares.security-headers.headers.browserxssfilter=true"
+      # Apply Headers to Frontend
+      - "traefik.http.routers.frontend.middlewares=security-headers"
     networks:
       - base2_network
     restart: unless-stopped
@@ -109,6 +119,7 @@ services:
       - "traefik.http.routers.api.rule=(Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)) && PathPrefix(`/api`)"
       - "traefik.http.routers.api.entrypoints=web-secure"
       - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.api.middlewares=security-headers"
       - "traefik.http.services.api.loadbalancer.server.port=${BACKEND_PORT}"
     networks:
       - base2_network
@@ -197,6 +208,24 @@ services:
       retries: 3
       start_period: 60s
 
+  # Application Monitoring (Uptime Kuma)
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: ${COMPOSE_PROJECT_NAME}_uptime_kuma
+    volumes:
+      - uptime_kuma_data:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime.rule=Host(`status.${WEBSITE_DOMAIN}`)"
+      - "traefik.http.routers.uptime.entrypoints=web-secure"
+      - "traefik.http.routers.uptime.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.uptime.middlewares=security-headers"
+      - "traefik.http.services.uptime.loadbalancer.server.port=3001"
+    networks:
+      - base2_network
+    restart: unless-stopped
+
 # Networks Configuration
 networks:
   base2_network:
@@ -215,4 +244,8 @@ volumes:
 
   traefik_logs:
     name: ${COMPOSE_PROJECT_NAME}_traefik_logs
+    driver: local
+
+  uptime_kuma_data:
+    name: ${COMPOSE_PROJECT_NAME}_uptime_kuma_data
     driver: local
