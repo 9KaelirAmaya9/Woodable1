@@ -14,7 +14,8 @@ ENV NODE_ENV=production
 
 # Install dependencies (cache layer)
 COPY ./react-app/package*.json ./
-RUN npm ci
+RUN npm install
+
 
 # Copy source and build
 COPY ./react-app/ .
