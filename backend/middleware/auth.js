@@ -56,6 +56,29 @@ const protect = async (req, res, next) => {
   }
 };
 
+// Optional protection (doesn't fail if no token)
+const optionalProtect = async (req, res, next) => {
+  let token;
+
+  if (
+    req.headers.authorization &&
+    req.headers.authorization.startsWith('Bearer')
+  ) {
+    try {
+      token = req.headers.authorization.split(' ')[1];
+      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+
+      const { rows } = await query('SELECT id FROM users WHERE id = $1', [decoded.id]);
+      if (rows.length > 0) {
+        req.user = rows[0];
+      }
+    } catch (error) {
+      // Invalid token, just ignore
+    }
+  }
+  next();
+};
+
 // Grant access to specific roles
 const restrictTo = (...roles) => {
   return (req, res, next) => {
@@ -83,6 +106,7 @@ const requireVerifiedEmail = (req, res, next) => {
 
 module.exports = {
   protect,
+  optionalProtect,
   restrictTo,
   requireVerifiedEmail,
 };
