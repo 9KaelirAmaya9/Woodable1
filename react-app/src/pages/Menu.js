@@ -47,7 +47,7 @@ const Menu = () => {
                 items: cartItems.map(i => ({ id: i.id, quantity: i.quantity })),
                 customer_name: checkoutForm.name,
                 customer_phone: checkoutForm.phone,
-                special_instructions: checkoutForm.instructions
+                notes: checkoutForm.instructions
             };
             const res = await orderAPI.createOrder(orderData);
             alert(`Order Placed! ID: ${res.data.id}`);

@@ -35,11 +35,11 @@ const OrderDashboard = () => {
 
     const getStatusColor = (status) => {
         switch (status) {
-            case 'pending': return '#ffc107'; // yellow
-            case 'confirmed': return '#17a2b8'; // teal
-            case 'ready': return '#28a745'; // green
-            case 'completed': return '#6c757d'; // gray
-            case 'cancelled': return '#dc3545'; // red
+            case 'NEW': return '#ffc107'; // yellow
+            case 'IN_PROGRESS': return '#17a2b8'; // teal
+            case 'READY': return '#28a745'; // green
+            case 'COMPLETED': return '#6c757d'; // gray
+            case 'CANCELLED': return '#dc3545'; // red
             default: return '#333';
         }
     };
@@ -61,7 +61,7 @@ const OrderDashboard = () => {
                     <div key={order.id} style={{ ...styles.card, borderLeft: `5px solid ${getStatusColor(order.status)}` }}>
                         <div style={styles.cardHeader}>
                             <span style={styles.id}>#{order.id}</span>
-                            <span style={{ ...styles.status, background: getStatusColor(order.status) }}>{order.status.toUpperCase()}</span>
+                            <span style={{ ...styles.status, background: getStatusColor(order.status) }}>{order.status}</span>
                         </div>
 
                         <div style={styles.customer}>
@@ -71,35 +71,35 @@ const OrderDashboard = () => {
                         </div>
 
                         <div style={styles.items}>
-                            {order.items.map((item, idx) => (
+                            {order.items && order.items.map((item, idx) => (
                                 <div key={idx} style={styles.item}>
                                     {item.quantity}x {item.name}
                                 </div>
                             ))}
                         </div>
 
-                        {order.special_instructions && (
+                        {order.notes && (
                             <div style={styles.note}>
-                                Note: {order.special_instructions}
+                                Note: {order.notes}
                             </div>
                         )}
 
                         <div style={styles.total}>
-                            Total: ${order.total_price}
+                            Total: ${order.total_amount}
                         </div>
 
                         <div style={styles.actions}>
-                            {order.status === 'pending' && (
-                                <button style={styles.confirmBtn} onClick={() => handleStatusUpdate(order.id, 'confirmed')}>Accept</button>
+                            {order.status === 'NEW' && (
+                                <button style={styles.confirmBtn} onClick={() => handleStatusUpdate(order.id, 'IN_PROGRESS')}>Accept</button>
                             )}
-                            {order.status === 'confirmed' && (
-                                <button style={styles.readyBtn} onClick={() => handleStatusUpdate(order.id, 'ready')}>Order Ready</button>
+                            {order.status === 'IN_PROGRESS' && (
+                                <button style={styles.readyBtn} onClick={() => handleStatusUpdate(order.id, 'READY')}>Order Ready</button>
                             )}
-                            {order.status === 'ready' && (
-                                <button style={styles.completeBtn} onClick={() => handleStatusUpdate(order.id, 'completed')}>Complete</button>
+                            {order.status === 'READY' && (
+                                <button style={styles.completeBtn} onClick={() => handleStatusUpdate(order.id, 'COMPLETED')}>Complete</button>
                             )}
-                            {['pending', 'confirmed'].includes(order.status) && (
-                                <button style={styles.cancelBtn} onClick={() => handleStatusUpdate(order.id, 'cancelled')}>Cancel</button>
+                            {['NEW', 'IN_PROGRESS'].includes(order.status) && (
+                                <button style={styles.cancelBtn} onClick={() => handleStatusUpdate(order.id, 'CANCELLED')}>Cancel</button>
                             )}
                         </div>
                         <p style={styles.time}>{new Date(order.created_at).toLocaleTimeString()}</p>

@@ -3,14 +3,14 @@ const { query, pool } = require('../config/database');
 
 // @desc    Create new order
 // @route   POST /api/orders
-// @access  Public (or Private)
+// @access  Public
 const createOrder = async (req, res) => {
     const errors = validationResult(req);
     if (!errors.isEmpty()) {
         return res.status(400).json({ success: false, errors: errors.array() });
     }
 
-    const { items, customer_name, customer_phone, special_instructions } = req.body;
+    const { items, customer_name, customer_phone, notes } = req.body;
     // items: [{ id, quantity }]
 
     if (!items || items.length === 0) {
@@ -43,21 +43,18 @@ const createOrder = async (req, res) => {
             orderItemsData.push({
                 menu_item_id: menuItem.id,
                 quantity,
-                price_at_time: price,
-                item_name: menuItem.name
+                unit_price: price,
+                menu_item_name: menuItem.name
             });
         }
 
         // 2. Create Order
-        // If user is logged in, attach user_id. (req.user might be present if auth middleware used optionally)
-        // For now assume public or strict. Let's make it optional.
-        const userId = req.user ? req.user.id : null;
-
+        // Note: user_id is not in current schema, skipping. Using 'NEW' status.
         const orderResult = await client.query(
-            `INSERT INTO orders (user_id, total_price, customer_name, customer_phone, special_instructions, status)
-       VALUES ($1, $2, $3, $4, $5, 'pending')
+            `INSERT INTO orders (total_amount, customer_name, customer_phone, notes, status)
+       VALUES ($1, $2, $3, $4, 'NEW')
        RETURNING id, created_at`,
-            [userId, totalPrice, customer_name, customer_phone, special_instructions]
+            [totalPrice, customer_name, customer_phone, notes]
         );
 
         const orderId = orderResult.rows[0].id;
@@ -65,9 +62,9 @@ const createOrder = async (req, res) => {
         // 3. Create Order Items
         for (const item of orderItemsData) {
             await client.query(
-                `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_time, item_name)
+                `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, menu_item_name)
          VALUES ($1, $2, $3, $4, $5)`,
-                [orderId, item.menu_item_id, item.quantity, item.price_at_time, item.item_name]
+                [orderId, item.menu_item_id, item.quantity, item.unit_price, item.menu_item_name]
             );
         }
 
@@ -78,8 +75,8 @@ const createOrder = async (req, res) => {
             message: 'Order placed successfully',
             data: {
                 id: orderId,
-                total_price: totalPrice,
-                status: 'pending'
+                total_amount: totalPrice,
+                status: 'NEW'
             }
         });
 
@@ -100,7 +97,7 @@ const getAllOrders = async (req, res) => {
         // Fetch orders with user details
         const result = await query(
             `SELECT o.*, 
-              json_agg(json_build_object('name', oi.item_name, 'quantity', oi.quantity, 'price', oi.price_at_time)) as items
+              json_agg(json_build_object('name', oi.menu_item_name, 'quantity', oi.quantity, 'price', oi.unit_price)) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id
        GROUP BY o.id
@@ -122,9 +119,9 @@ const getAllOrders = async (req, res) => {
 // @access  Private (Admin)
 const updateOrderStatus = async (req, res) => {
     const { id } = req.params;
-    const { status } = req.body; // pending, confirmed, ready, completed, cancelled
+    const { status } = req.body;
 
-    const validStatuses = ['pending', 'confirmed', 'ready', 'completed', 'cancelled'];
+    const validStatuses = ['NEW', 'IN_PROGRESS', 'READY', 'COMPLETED', 'CANCELLED'];
     if (!validStatuses.includes(status)) {
         return res.status(400).json({ success: false, message: 'Invalid status' });
     }
@@ -158,16 +155,16 @@ const getAnalytics = async (req, res) => {
         try {
             // 1. Daily Sales (Last 30 days)
             const dailySales = await client.query(`
-        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, SUM(total_price) as revenue, COUNT(*) as orders
+        SELECT TO_CHAR(created_at, 'YYYY-MM-DD') as date, SUM(total_amount) as revenue, COUNT(*) as orders
         FROM orders
-        WHERE status != 'cancelled' AND created_at > NOW() - INTERVAL '30 days'
+        WHERE status != 'CANCELLED' AND created_at > NOW() - INTERVAL '30 days'
         GROUP BY 1
         ORDER BY 1 ASC
       `);
 
             // 2. Popular Items
             const popularItems = await client.query(`
-        SELECT item_name, SUM(quantity) as count
+        SELECT menu_item_name as item_name, SUM(quantity) as count
         FROM order_items
         GROUP BY 1
         ORDER BY 2 DESC
@@ -178,8 +175,8 @@ const getAnalytics = async (req, res) => {
             const stats = await client.query(`
         SELECT 
           COUNT(*) as total_orders,
-          SUM(CASE WHEN status != 'cancelled' THEN total_price ELSE 0 END) as total_revenue,
-          AVG(CASE WHEN status != 'cancelled' THEN total_price ELSE 0 END) as avg_order_value
+          SUM(CASE WHEN status != 'CANCELLED' THEN total_amount ELSE 0 END) as total_revenue,
+          AVG(CASE WHEN status != 'CANCELLED' THEN total_amount ELSE 0 END) as avg_order_value
         FROM orders
       `);
 
@@ -200,10 +197,208 @@ const getAnalytics = async (req, res) => {
     }
 };
 
+// @desc    Get active orders (Kitchen)
+// @route   GET /api/orders/list/active
+// @access  Private (Kitchen)
+const getActiveOrders = async (req, res) => {
+    try {
+        const result = await query(
+            `SELECT * FROM orders
+       WHERE status IN ('NEW', 'IN_PROGRESS')
+       ORDER BY
+         CASE status
+           WHEN 'NEW' THEN 1
+           WHEN 'IN_PROGRESS' THEN 2
+         END,
+         created_at ASC`
+        );
+
+        // Fetch items for each order
+        const ordersWithItems = await Promise.all(
+            result.rows.map(async order => {
+                const itemsResult = await query(
+                    'SELECT * FROM order_items WHERE order_id = $1',
+                    [order.id]
+                );
+                return {
+                    ...order,
+                    items: itemsResult.rows
+                };
+            })
+        );
+
+        res.json({
+            success: true,
+            data: ordersWithItems
+        });
+    } catch (error) {
+        console.error('Error fetching active orders:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching active orders'
+        });
+    }
+};
+
+/**
+ * Helper function to get complete order with items
+ */
+async function getOrderById(orderId) {
+    const orderResult = await query('SELECT * FROM orders WHERE id = $1', [orderId]);
+
+    if (orderResult.rows.length === 0) {
+        return null;
+    }
+
+    const order = orderResult.rows[0];
+
+    const itemsResult = await query(
+        'SELECT * FROM order_items WHERE order_id = $1',
+        [orderId]
+    );
+
+    return {
+        ...order,
+        items: itemsResult.rows
+    };
+}
+
+// @desc    Get single order by ID
+// @route   GET /api/orders/:id
+// @access  Public (customers can check their order)
+const getOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const order = await getOrderById(id);
+
+        if (!order) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: order
+        });
+    } catch (error) {
+        console.error('Error fetching order:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error fetching order'
+        });
+    }
+};
+
+// @desc    Update order (Full)
+// @route   PUT /api/orders/:id
+// @access  Private (Admin)
+const updateOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { customer_name, customer_phone, customer_email, notes, status } = req.body;
+
+        const updates = [];
+        const params = [];
+        let paramCount = 1;
+
+        if (customer_name !== undefined) {
+            params.push(customer_name);
+            updates.push(`customer_name = $${paramCount++}`);
+        }
+        if (customer_phone !== undefined) {
+            params.push(customer_phone);
+            updates.push(`customer_phone = $${paramCount++}`);
+        }
+        if (customer_email !== undefined) {
+            params.push(customer_email);
+            updates.push(`customer_email = $${paramCount++}`);
+        }
+        if (notes !== undefined) {
+            params.push(notes);
+            updates.push(`notes = $${paramCount++}`);
+        }
+        if (status !== undefined) {
+            params.push(status);
+            updates.push(`status = $${paramCount++}`);
+        }
+
+        if (updates.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No fields to update'
+            });
+        }
+
+        params.push(id);
+        const sql = `UPDATE orders SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`;
+
+        const result = await query(sql, params);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        const order = await getOrderById(id);
+
+        res.json({
+            success: true,
+            data: order,
+            message: 'Order updated successfully'
+        });
+    } catch (error) {
+        console.error('Error updating order:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error updating order'
+        });
+    }
+};
+
+// @desc    Delete order
+// @route   DELETE /api/orders/:id
+// @access  Private (Admin)
+const deleteOrder = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const result = await query(
+            'DELETE FROM orders WHERE id = $1 RETURNING *',
+            [id]
+        );
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Order not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            message: 'Order deleted successfully'
+        });
+    } catch (error) {
+        console.error('Error deleting order:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Error deleting order'
+        });
+    }
+};
+
 module.exports = {
     createOrder,
     getAllOrders,
     updateOrderStatus,
     getAnalytics,
+    getActiveOrders,
+    getOrder,
+    updateOrder,
+    deleteOrder,
 };
 

@@ -66,11 +66,13 @@ const optionalProtect = async (req, res, next) => {
   ) {
     try {
       token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET);
+      const decoded = verifyToken(token);
 
-      const { rows } = await query('SELECT id FROM users WHERE id = $1', [decoded.id]);
-      if (rows.length > 0) {
-        req.user = rows[0];
+      if (decoded) {
+        const { rows } = await query('SELECT id, role FROM users WHERE id = $1', [decoded.id]);
+        if (rows.length > 0) {
+          req.user = rows[0];
+        }
       }
     } catch (error) {
       // Invalid token, just ignore
@@ -82,8 +84,11 @@ const optionalProtect = async (req, res, next) => {
 // Grant access to specific roles
 const restrictTo = (...roles) => {
   return (req, res, next) => {
-    // If user role is not in the allowed roles
-    if (!roles.includes(req.user.role)) {
+    // Normalize roles to lowercase for comparison
+    const userRole = req.user.role ? req.user.role.toLowerCase() : '';
+    const allowedRoles = roles.map(role => role.toLowerCase());
+
+    if (!allowedRoles.includes(userRole)) {
       return res.status(403).json({
         success: false,
         message: 'You do not have permission to perform this action',
