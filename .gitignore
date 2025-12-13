@@ -338,3 +338,8 @@ lerna-debug.log*
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Database backups
+backups/
+*.sql
+*.sql.gz
