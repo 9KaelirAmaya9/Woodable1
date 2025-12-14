@@ -5,16 +5,7 @@
 entryPoints:
   web:
     address: ':${TRAEFIK_PORT}'
-    http:
-      # https://docs.traefik.io/routing/entrypoints/#entrypoint
-      redirections:
-        entryPoint:
-          to: web-secure
-          # scheme: https # all will redirect to https
-
-  web-secure:
-    # https
-    address: ":443"
+    # SANDBOX MODE: No HTTPS redirect
 
   # API and dashboard entrypoint (Traefik v3 uses 'traefik' as the internal name)
   traefik:
@@ -41,20 +32,14 @@ accessLog:
   format: json
   bufferingSize: 100
 
-certificatesResolvers:
-  letsencrypt:
-    # https://docs.traefik.io/master/https/acme/#lets-encrypt
-    acme:
-      email: '${TRAEFIK_CERT_EMAIL}'
-      storage: /etc/traefik/acme/acme.json
-      # https://docs.traefik.io/master/https/acme/#httpchallenge
-      httpChallenge:
-        entryPoint: web
-      dnsChallenge:
-        provider: digitalocean
-        # delayBeforeCheck: 0
-      # caServer: https://acme-staging-v02.api.letsencrypt.org/directory
-      caServer: https://acme-v02.api.letsencrypt.org/directory
+# SANDBOX MODE: Certificate resolvers disabled for local development
+# certificatesResolvers:
+#   letsencrypt:
+#     acme:
+#       email: '${TRAEFIK_CERT_EMAIL}'
+#       storage: /etc/traefik/acme/acme.json
+#       httpChallenge:
+#         entryPoint: web
 
 # Providers configuration
 providers:

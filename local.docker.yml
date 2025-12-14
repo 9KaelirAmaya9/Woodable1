@@ -15,7 +15,8 @@ services:
     container_name: ${COMPOSE_PROJECT_NAME}_traefik
     ports:
       - "80:80"
-      - "443:443"
+      - "8082:8082"  # Traefik Dashboard
+      # SANDBOX MODE: Port 443 disabled (no HTTPS)
     environment:
       - TRAEFIK_LOG_LEVEL=${TRAEFIK_LOG_LEVEL}
       - TRAEFIK_PORT=${TRAEFIK_PORT}
@@ -58,24 +59,14 @@ services:
       - NGINX_PORT=${NGINX_PORT}
     labels:
       - "traefik.enable=true"
-      # Frontend Routing (Root)
-      - "traefik.http.routers.frontend.rule=Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)"
-      - "traefik.http.routers.frontend.entrypoints=web-secure"
-      - "traefik.http.routers.frontend.tls.certresolver=letsencrypt"
-      # HTTP -> HTTPS Redirect
-      - "traefik.http.routers.frontend-http.rule=Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)"
-      - "traefik.http.routers.frontend-http.entrypoints=web"
-      - "traefik.http.routers.frontend-http.middlewares=redirect-to-https"
-      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
-      # Security Headers
-      - "traefik.http.middlewares.security-headers.headers.sslredirect=true"
-      - "traefik.http.middlewares.security-headers.headers.stsseconds=31536000"
-      - "traefik.http.middlewares.security-headers.headers.stsincludesubdomains=true"
-      - "traefik.http.middlewares.security-headers.headers.stspreload=true"
+      # SANDBOX MODE: HTTP only routing (no HTTPS)
+      - "traefik.http.routers.frontend.rule=Host(`localhost`) || Host(`${WEBSITE_DOMAIN}`)"
+      - "traefik.http.routers.frontend.entrypoints=web"
+      - "traefik.http.services.frontend.loadbalancer.server.port=${NGINX_PORT}"
+      # Security Headers (SSL-related headers disabled for sandbox)
       - "traefik.http.middlewares.security-headers.headers.framedeny=true"
       - "traefik.http.middlewares.security-headers.headers.contenttypenosniff=true"
       - "traefik.http.middlewares.security-headers.headers.browserxssfilter=true"
-      # Apply Headers to Frontend
       - "traefik.http.routers.frontend.middlewares=security-headers"
     networks:
       - base2_network
@@ -115,10 +106,9 @@ services:
       - RATE_LIMIT_MAX_REQUESTS=${RATE_LIMIT_MAX_REQUESTS}
     labels:
       - "traefik.enable=true"
-      # API Routing (/api)
-      - "traefik.http.routers.api.rule=(Host(`${WEBSITE_DOMAIN}`) || Host(`www.${WEBSITE_DOMAIN}`)) && PathPrefix(`/api`)"
-      - "traefik.http.routers.api.entrypoints=web-secure"
-      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      # SANDBOX MODE: HTTP only API routing (no HTTPS)
+      - "traefik.http.routers.api.rule=(Host(`localhost`) || Host(`${WEBSITE_DOMAIN}`)) && PathPrefix(`/api`)"
+      - "traefik.http.routers.api.entrypoints=web"
       - "traefik.http.routers.api.middlewares=security-headers"
       - "traefik.http.services.api.loadbalancer.server.port=${BACKEND_PORT}"
     networks:
