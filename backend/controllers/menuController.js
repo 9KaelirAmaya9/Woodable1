@@ -7,7 +7,7 @@ const { query } = require('../config/database');
 const getCategories = async (req, res) => {
     try {
         const result = await query(
-            'SELECT * FROM menu_categories ORDER BY sort_order ASC'
+            'SELECT * FROM categories ORDER BY display_order ASC'
         );
         res.json({
             success: true,
@@ -27,9 +27,9 @@ const getItems = async (req, res) => {
         const result = await query(
             `SELECT m.*, c.name as category_name 
        FROM menu_items m 
-       LEFT JOIN menu_categories c ON m.category_id = c.id 
+       LEFT JOIN categories c ON m.category_id = c.id 
        WHERE m.is_available = true 
-       ORDER BY c.sort_order ASC, m.id ASC`
+       ORDER BY c.display_order ASC, m.id ASC`
         );
         res.json({
             success: true,

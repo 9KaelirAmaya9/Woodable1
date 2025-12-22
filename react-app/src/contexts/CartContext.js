@@ -52,20 +52,25 @@ export const CartProvider = ({ children }) => {
         setCartItems([]);
     };
 
-    const cartTotal = cartItems.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
-    const cartCount = cartItems.reduce((count, item) => count + item.quantity, 0);
+    const getCartTotal = () => cartItems.reduce((total, item) => total + (parseFloat(item.price) * item.quantity), 0);
+    const getCartItemCount = () => cartItems.reduce((count, item) => count + item.quantity, 0);
 
     return (
         <CartContext.Provider value={{
-            cartItems,
+            cart: cartItems,
+            cartItems, // Keep for backward compatibility
             addToCart,
             removeFromCart,
             updateQuantity,
             clearCart,
-            cartTotal,
-            cartCount
+            getCartTotal,
+            getCartItemCount,
+            cartTotal: getCartTotal(), // Keep for backward compatibility
         }}>
             {children}
         </CartContext.Provider>
     );
 };
+
+export { CartContext }; // Export CartContext for CheckoutModal
+export default CartProvider;

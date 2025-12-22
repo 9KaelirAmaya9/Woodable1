@@ -1,0 +1,222 @@
+# Anti Gravity IDE Configuration
+# Spec-Kit Integration for Woodable1 Project
+
+project:
+  name: "Woodable1"
+  root: "."
+  type: "docker-compose"
+
+# Spec-Kit Commands
+spec_kit:
+  enabled: true
+  constitution_file: "constitution.md"
+  specs_directory: "specs"
+  templates_directory: ".specify/templates"
+  
+  # Custom slash commands for Anti Gravity
+  commands:
+    - name: "/speckit.constitution"
+      description: "View or update project constitution"
+      action: "read_file"
+      file: "constitution.md"
+    
+    - name: "/speckit.specify"
+      description: "Create a new feature specification"
+      action: "execute_template"
+      template: ".specify/templates/spec-template.md"
+      output_pattern: "specs/{feature-number}-{feature-name}/spec.md"
+    
+    - name: "/speckit.plan"
+      description: "Generate technical implementation plan from spec"
+      action: "execute_template"
+      template: ".specify/templates/plan-template.md"
+      input: "specs/{feature-name}/spec.md"
+      output: "specs/{feature-name}/plan.md"
+    
+    - name: "/speckit.tasks"
+      description: "Break down plan into implementable tasks"
+      action: "execute_template"
+      template: ".specify/templates/task-template.md"
+      input: "specs/{feature-name}/plan.md"
+      output: "specs/{feature-name}/tasks.md"
+    
+    - name: "/speckit.implement"
+      description: "Implement tasks from tasks.md"
+      action: "execute_tasks"
+      input: "specs/{feature-name}/tasks.md"
+
+# Auto-approve script execution
+auto_approve:
+  enabled: true
+  paths:
+    - ".specify/scripts/bash/**"
+    - ".specify/scripts/powershell/**"
+    - "./scripts/**"
+  
+  # Scripts that can run without confirmation
+  safe_scripts:
+    - "start.sh"
+    - "stop.sh"
+    - "logs.sh"
+    - "status.sh"
+    - "health.sh"
+    - "sync-env.sh"
+
+# Context Files - Always include these
+context:
+  always_include:
+    - "constitution.md"
+    - ".env.example"
+    - "README.md"
+    - "package.json"
+    - "docker-compose.yml"
+    - "local.docker.yml"
+  
+  # Include when working on specific areas
+  conditional:
+    backend:
+      - "backend/package.json"
+      - "backend/src/**/*.js"
+      - "backend/README.md"
+    frontend:
+      - "react-app/package.json"
+      - "react-app/src/**/*.jsx"
+      - "react-app/src/**/*.tsx"
+    infrastructure:
+      - "traefik/traefik.yml"
+      - "nginx/nginx.conf"
+      - "postgres/**/*.sql"
+
+# Quick Actions
+quick_actions:
+  - name: "Start Development Environment"
+    command: "./scripts/start.sh"
+    description: "Start all Docker services"
+  
+  - name: "Stop Development Environment"
+    command: "./scripts/stop.sh"
+    description: "Stop all Docker services"
+  
+  - name: "View Service Logs"
+    command: "./scripts/logs.sh --follow"
+    description: "Follow all service logs"
+  
+  - name: "Check Service Health"
+    command: "./scripts/health.sh"
+    description: "Check health of all services"
+  
+  - name: "Sync Environment Config"
+    command: "./scripts/sync-env.sh"
+    description: "Sync .env with config files"
+  
+  - name: "Run All Tests"
+    command: "./scripts/test.sh"
+    description: "Run backend and frontend tests"
+  
+  - name: "Rebuild Services"
+    command: "./scripts/rebuild.sh --no-cache"
+    description: "Rebuild Docker images from scratch"
+
+# Project Structure
+structure:
+  source_directories:
+    - "backend/src"
+    - "react-app/src"
+  
+  test_directories:
+    - "backend/tests"
+    - "react-app/src/__tests__"
+  
+  config_directories:
+    - "traefik"
+    - "nginx"
+    - "postgres"
+    - "pgadmin"
+  
+  script_directories:
+    - "scripts"
+    - ".specify/scripts"
+
+# File Patterns
+file_patterns:
+  ignore:
+    - "node_modules/**"
+    - "**/dist/**"
+    - "**/build/**"
+    - "**/.cache/**"
+    - "**/*.log"
+    - ".git/**"
+    - "*.lock"
+  
+  watch:
+    - "**/*.js"
+    - "**/*.jsx"
+    - "**/*.ts"
+    - "**/*.tsx"
+    - "**/*.json"
+    - "**/*.md"
+    - "**/*.yml"
+    - "**/*.yaml"
+    - "**/*.sh"
+
+# AI Assistant Preferences
+ai_preferences:
+  model: "claude-sonnet-4"
+  temperature: 0.7
+  
+  # Response formatting
+  formatting:
+    use_markdown: true
+    include_code_blocks: true
+    show_file_paths: true
+  
+  # Code generation preferences
+  code_style:
+    - "Use ES6+ JavaScript syntax"
+    - "Prefer functional components in React"
+    - "Use async/await over promises"
+    - "Include JSDoc comments for functions"
+    - "Follow project's ESLint rules"
+  
+  # Docker-specific
+  docker:
+    - "Always include health checks"
+    - "Use non-root users"
+    - "Minimize image layers"
+    - "Use multi-stage builds"
+
+# Environment Management
+environment:
+  env_file: ".env"
+  env_example: ".env.example"
+  
+  # Required variables
+  required_vars:
+    - "POSTGRES_USER"
+    - "POSTGRES_PASSWORD"
+    - "POSTGRES_DB"
+    - "JWT_SECRET"
+    - "NODE_ENV"
+  
+  # Sync on change
+  sync_on_change: true
+  sync_script: "./scripts/sync-env.sh"
+
+# Git Integration
+git:
+  branch_naming: "feature/{ticket-number}-{description}"
+  commit_conventions: "conventional-commits"
+  
+  # Auto-create branches for specs
+  auto_branch: true
+  branch_prefix: "spec"
+
+# Notifications
+notifications:
+  enabled: true
+  events:
+    - "docker_service_started"
+    - "docker_service_stopped"
+    - "tests_completed"
+    - "build_failed"
+    - "health_check_failed"

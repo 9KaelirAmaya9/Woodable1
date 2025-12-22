@@ -1,7 +1,7 @@
 import axios from 'axios';
 
-// Always use relative path for API, so Traefik can route correctly
-const API_URL = '/api';
+// Use environment variable for API URL, fallback to relative path for production
+const API_URL = process.env.REACT_APP_API_URL || '/api';
 
 // Create axios instance
 const api = axios.create({

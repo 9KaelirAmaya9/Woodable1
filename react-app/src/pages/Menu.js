@@ -2,20 +2,17 @@ import React, { useState, useEffect } from 'react';
 import { menuAPI, orderAPI } from '../services/api';
 import { useCart } from '../contexts/CartContext';
 import { useNavigate } from 'react-router-dom';
+import CheckoutModal from '../components/CheckoutModal';
 
 const Menu = () => {
     const [categories, setCategories] = useState([]);
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [activeCategory, setActiveCategory] = useState('all');
-    const [showCheckout, setShowCheckout] = useState(false);
+    const [showCheckoutModal, setShowCheckoutModal] = useState(false);
     const navigate = useNavigate();
 
-    const { addToCart, cartItems, removeFromCart, cartTotal, clearCart } = useCart();
-
-    // Checkout Form State
-    const [checkoutForm, setCheckoutForm] = useState({ name: '', phone: '', instructions: '' });
-    const [checkoutLoading, setCheckoutLoading] = useState(false);
+    const { addToCart, cart, removeFromCart, getCartTotal, getCartItemCount } = useCart();
 
     useEffect(() => {
         const fetchData = async () => {
@@ -24,10 +21,14 @@ const Menu = () => {
                     menuAPI.getCategories(),
                     menuAPI.getItems()
                 ]);
-                setCategories(catRes.data);
-                setItems(itemRes.data);
+                // API returns {success: true, data: [...]}
+                // menuAPI already returns response.data, so we access .data from that
+                setCategories(catRes.data || []);
+                setItems(itemRes.data || []);
             } catch (err) {
                 console.error('Failed to load menu', err);
+                setCategories([]);
+                setItems([]);
             } finally {
                 setLoading(false);
             }
@@ -38,28 +39,6 @@ const Menu = () => {
     const filteredItems = activeCategory === 'all'
         ? items
         : items.filter(i => i.category_id === parseInt(activeCategory));
-
-    const handleCheckout = async (e) => {
-        e.preventDefault();
-        setCheckoutLoading(true);
-        try {
-            const orderData = {
-                items: cartItems.map(i => ({ id: i.id, quantity: i.quantity })),
-                customer_name: checkoutForm.name,
-                customer_phone: checkoutForm.phone,
-                notes: checkoutForm.instructions
-            };
-            const res = await orderAPI.createOrder(orderData);
-            alert(`Order Placed! ID: ${res.data.id}`);
-            clearCart();
-            setShowCheckout(false);
-            setCheckoutForm({ name: '', phone: '', instructions: '' });
-        } catch (err) {
-            alert('Order failed: ' + (err.response?.data?.message || err.message));
-        } finally {
-            setCheckoutLoading(false);
-        }
-    };
 
     if (loading) return <div style={styles.container}>Loading delicious tacos...</div>;
 
@@ -106,58 +85,16 @@ const Menu = () => {
                 ))}
             </div>
 
-            {cartItems.length > 0 && (
-                <button style={styles.floatCart} onClick={() => setShowCheckout(true)}>
-                    🛒 {cartItems.reduce((a, b) => a + b.quantity, 0)} Items | ${cartTotal.toFixed(2)}
+            {cart.length > 0 && (
+                <button style={styles.floatCart} onClick={() => setShowCheckoutModal(true)}>
+                    🛒 {getCartItemCount()} Items | ${getCartTotal().toFixed(2)}
                 </button>
             )}
 
-            {showCheckout && (
-                <div style={styles.modalOverlay}>
-                    <div style={styles.modal}>
-                        <h2>Checkout</h2>
-                        <div style={styles.cartSummary}>
-                            {cartItems.map(i => (
-                                <div key={i.id} style={styles.cartItem}>
-                                    <span>{i.name} x {i.quantity}</span>
-                                    <button onClick={() => removeFromCart(i.id)} style={styles.removeBtn}>x</button>
-                                </div>
-                            ))}
-                            <hr />
-                            <div style={{ textAlign: 'right', fontWeight: 'bold' }}>Total: ${cartTotal.toFixed(2)}</div>
-                        </div>
-
-                        <form onSubmit={handleCheckout} style={styles.form}>
-                            <input
-                                placeholder="Your Name"
-                                required
-                                style={styles.input}
-                                value={checkoutForm.name}
-                                onChange={e => setCheckoutForm({ ...checkoutForm, name: e.target.value })}
-                            />
-                            <input
-                                placeholder="Phone Number"
-                                required
-                                style={styles.input}
-                                value={checkoutForm.phone}
-                                onChange={e => setCheckoutForm({ ...checkoutForm, phone: e.target.value })}
-                            />
-                            <textarea
-                                placeholder="Special Instructions (No onions, etc.)"
-                                style={styles.input}
-                                value={checkoutForm.instructions}
-                                onChange={e => setCheckoutForm({ ...checkoutForm, instructions: e.target.value })}
-                            />
-                            <div style={styles.modalActions}>
-                                <button type="button" onClick={() => setShowCheckout(false)} style={styles.cancelBtn}>Cancel</button>
-                                <button type="submit" disabled={checkoutLoading} style={styles.confirmBtn}>
-                                    {checkoutLoading ? 'Placing Order...' : 'Place Order'}
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
+            <CheckoutModal
+                isOpen={showCheckoutModal}
+                onClose={() => setShowCheckoutModal(false)}
+            />
         </div>
     );
 };

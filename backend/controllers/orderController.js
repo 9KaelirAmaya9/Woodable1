@@ -43,18 +43,36 @@ const createOrder = async (req, res) => {
             orderItemsData.push({
                 menu_item_id: menuItem.id,
                 quantity,
-                unit_price: price,
-                menu_item_name: menuItem.name
+                price_at_time: price,
+                item_name: menuItem.name
             });
         }
 
-        // 2. Create Order
-        // Note: user_id is not in current schema, skipping. Using 'NEW' status.
+        // 2. Create Order with payment and delivery info
         const orderResult = await client.query(
-            `INSERT INTO orders (total_amount, customer_name, customer_phone, notes, status)
-       VALUES ($1, $2, $3, $4, 'NEW')
-       RETURNING id, created_at`,
-            [totalPrice, customer_name, customer_phone, notes]
+            `INSERT INTO orders (
+                total_price, total_amount, subtotal, delivery_fee,
+                customer_name, customer_phone, customer_email,
+                notes, order_type, delivery_address,
+                payment_status, stripe_payment_intent_id,
+                status
+            )
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'pending')
+            RETURNING id, created_at`,
+            [
+                totalPrice, // total_price (for backward compatibility)
+                req.body.total || totalPrice, // total_amount
+                req.body.subtotal || totalPrice, // subtotal
+                req.body.delivery_fee || 0, // delivery_fee
+                customer_name,
+                customer_phone,
+                req.body.customer_email || null, // customer_email
+                notes,
+                req.body.order_type || 'pickup', // order_type
+                req.body.delivery_address || null, // delivery_address
+                req.body.payment_status || 'pending', // payment_status
+                req.body.payment_intent_id || null // stripe_payment_intent_id
+            ]
         );
 
         const orderId = orderResult.rows[0].id;
@@ -62,9 +80,9 @@ const createOrder = async (req, res) => {
         // 3. Create Order Items
         for (const item of orderItemsData) {
             await client.query(
-                `INSERT INTO order_items (order_id, menu_item_id, quantity, unit_price, menu_item_name)
+                `INSERT INTO order_items (order_id, menu_item_id, quantity, price_at_time, item_name)
          VALUES ($1, $2, $3, $4, $5)`,
-                [orderId, item.menu_item_id, item.quantity, item.unit_price, item.menu_item_name]
+                [orderId, item.menu_item_id, item.quantity, item.price_at_time, item.item_name]
             );
         }
 
@@ -97,7 +115,7 @@ const getAllOrders = async (req, res) => {
         // Fetch orders with user details
         const result = await query(
             `SELECT o.*, 
-              json_agg(json_build_object('name', oi.menu_item_name, 'quantity', oi.quantity, 'price', oi.unit_price)) as items
+              json_agg(json_build_object('name', oi.item_name, 'quantity', oi.quantity, 'price', oi.price_at_time)) as items
        FROM orders o
        LEFT JOIN order_items oi ON o.id = oi.order_id
        GROUP BY o.id
