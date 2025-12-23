@@ -36,6 +36,7 @@ app.use('/api/menu', require('./routes/menu'));
 app.use('/api/orders', require('./routes/orders'));
 // app.use('/api/workorders', require('./routes/workOrders')); // Temporarily disabled - JSX syntax error in pdfGenerator
 app.use('/api/payments', require('./routes/payments'));
+app.use('/api/admin', require('./routes/admin')); // Admin dashboard routes
 
 
 // Health check route

@@ -15,6 +15,7 @@ import OrderDashboard from './pages/admin/OrderDashboard';
 import AnalyticsDashboard from './pages/admin/AnalyticsDashboard';
 import WorkOrderDashboard from './pages/admin/WorkOrderDashboard';
 import WorkOrderForm from './pages/admin/WorkOrderForm';
+import AdminDashboard from './pages/admin/AdminDashboard';
 import Menu from './pages/Menu';
 import './App.css';
 
@@ -31,6 +32,7 @@ function App() {
             <Routes>
               <Route path="/" element={<Home />} />
               <Route path="/menu" element={<Menu />} />
+              <Route path="/admin" element={<AdminDashboard />} />
               <Route path="/verify-email" element={<VerifyEmail />} />
               <Route path="/forgot-password" element={<ForgotPassword />} />
               <Route path="/reset-password" element={<ResetPassword />} />
