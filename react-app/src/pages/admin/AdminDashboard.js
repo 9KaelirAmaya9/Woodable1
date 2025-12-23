@@ -12,7 +12,7 @@ function AdminDashboard() {
 
     useEffect(() => {
         // Check for existing token
-        const savedToken = localStorage.getItem('adminToken');
+        const savedToken = localStorage.getItem('token');
         if (savedToken) {
             setToken(savedToken);
         }
@@ -75,7 +75,7 @@ function AdminDashboard() {
     };
 
     const handleLogout = () => {
-        localStorage.removeItem('adminToken');
+        localStorage.removeItem('token');
         setToken(null);
         setMetrics(null);
     };

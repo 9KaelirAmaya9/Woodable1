@@ -13,8 +13,8 @@ function AdminLogin({ onLogin }) {
         setLoading(true);
 
         try {
-            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001';
-            const response = await fetch(`${apiUrl}/api/admin/login`, {
+            const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:5001/api';
+            const response = await fetch(`${apiUrl}/admin/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ username, password })
@@ -23,7 +23,7 @@ function AdminLogin({ onLogin }) {
             const data = await response.json();
 
             if (data.success) {
-                localStorage.setItem('adminToken', data.token);
+                localStorage.setItem('token', data.token);
                 onLogin(data.token);
             } else {
                 setError(data.message || 'Invalid credentials');
