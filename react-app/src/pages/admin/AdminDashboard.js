@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../../contexts/AuthContext';
 import AdminLogin from '../../components/admin/AdminLogin';
 import './AdminDashboard.css';
 
@@ -9,6 +10,7 @@ function AdminDashboard() {
     const [metrics, setMetrics] = useState(null);
     const [metricsLoading, setMetricsLoading] = useState(false);
     const navigate = useNavigate();
+    const { logout: clearAuthContext } = useAuth();
 
     useEffect(() => {
         // Check for existing token
@@ -76,6 +78,8 @@ function AdminDashboard() {
 
     const handleLogout = () => {
         localStorage.removeItem('token');
+        localStorage.removeItem('user');
+        clearAuthContext();
         setToken(null);
         setMetrics(null);
     };

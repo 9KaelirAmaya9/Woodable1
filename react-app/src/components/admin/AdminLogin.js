@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuth } from '../../contexts/AuthContext';
 import './AdminLogin.css';
 
 function AdminLogin({ onLogin }) {
@@ -6,6 +7,7 @@ function AdminLogin({ onLogin }) {
     const [password, setPassword] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
+    const { login: setAuthUser } = useAuth();
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,7 +25,19 @@ function AdminLogin({ onLogin }) {
             const data = await response.json();
 
             if (data.success) {
+                // Store token
                 localStorage.setItem('token', data.token);
+
+                // Also update AuthContext with admin user
+                const adminUser = {
+                    id: data.admin.id || 1,
+                    username: data.admin.username,
+                    role: data.admin.role,
+                    email: `${data.admin.username}@admin.local`
+                };
+                localStorage.setItem('user', JSON.stringify(adminUser));
+                setAuthUser(adminUser, data.token);
+
                 onLogin(data.token);
             } else {
                 setError(data.message || 'Invalid credentials');
